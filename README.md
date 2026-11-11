@@ -2,6 +2,10 @@
 
 > 让 AI 从多篇范文中学习你喜欢的表达方式,形成可反复使用的专属写作风格库。
 
+[![Deploy](https://img.shields.io/badge/在线体验-stylemate--34839.app.workbuddy.host-12a594)](https://stylemate-34839.app.workbuddy.host/?sharecode=FJMAV4DJRC)
+
+**在线体验**:[stylemate-34839.app.workbuddy.host](https://stylemate-34839.app.workbuddy.host/?sharecode=FJMAV4DJRC)
+
 ---
 
 ## 一、产品定位
@@ -166,7 +170,57 @@ node scripts/verify-template-loop.mjs  # 风格模板对改写的实际约束效
 npm install
 npm run dev      # 开发模式
 npm run build    # 生产构建(含类型检查)
+npm start        # 构建并以静态服务器启动(部署用,监听 PORT)
 ```
 
-数据库与 LLM 均走云端,本地开发无需额外配置。
+**云服务配置**:仓库内置了一套公开的演示环境配置,克隆后可直接运行。
+若要接入自己的实例,复制 `.env.example` 为 `.env` 并填入对应值:
+
+| 变量 | 说明 |
+|---|---|
+| `VITE_CLOUD_ENDPOINT` | 云服务数据面地址 |
+| `VITE_CLOUD_PUBLISHABLE_KEY` | 应用标识密钥(前端可持有,服务端校验 Origin) |
+| `VITE_CLOUD_OAUTH_RELAY` | OAuth 中继地址(微信 / WorkBuddy 登录必需) |
+
+> `publishableKey` 仅用于标识应用,本身不含权限,服务端会校验请求来源,
+> 因此它可以安全地放在前端代码里。**服务端密钥绝不入库。**
+
+**数据库表结构**已随环境一并创建(`style_templates` / `rewrite_records`),
+均开启行级安全(RLS),按 `owner_id` 隔离。若迁移到自己的环境,需按
+`src/database.types.ts` 的结构建表并配置同名策略。
+
 登录回调需要在正式域名下完成授权,故完整流程请使用线上版本。
+
+---
+
+## 七、目录结构
+
+```
+.
+├── index.html               入口 HTML
+├── server.js                静态资源服务器(部署用,监听 PORT)
+├── vite.config.ts           构建配置
+├── src/
+│   ├── main.tsx             挂载入口
+│   ├── App.tsx              主应用:登录态 / 标签页 / 数据编排
+│   ├── cloud.ts             云客户端初始化(唯一实例)
+│   ├── llm.ts               LLM 服务层:风格分析 / 改写 / 多版本 / 微调
+│   ├── storage.ts           数据访问层(带 auth 门禁)
+│   ├── database.types.ts    与云端表结构对应的 schema 类型
+│   ├── types.ts             领域类型与场景配置
+│   ├── styles.css           设计系统(浅蓝 + 浅绿)
+│   └── components/
+│       ├── LoginView.tsx    登录页(WorkBuddy / 微信)
+│       ├── RewriteWorkbench.tsx  改写工作台
+│       ├── StyleLab.tsx     风格实验室
+│       └── Library.tsx      风格库与历史记录
+├── scripts/                 联调验证脚本
+└── .env.example             配置样例
+```
+
+---
+
+## 八、License
+
+MIT
+
