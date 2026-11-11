@@ -33,8 +33,10 @@ jobs:
       - name: Build
         run: npm run build
         env:
-          # GitHub Pages 托管在仓库子路径下,资源引用需要带 base 前缀
-          VITE_BASE_PATH: /${{ github.event.repository.name }}/
+          # GitHub Pages 托管在仓库子路径下,资源引用需要带 base 前缀。
+          # 变量名须与 vite.config.ts 读取的一致(VITE_BASE / STYLEMATE_BASE),
+          # 否则 base 回退为 "/",产物资源会指向域名根路径导致 404。
+          STYLEMATE_BASE: /${{ github.event.repository.name }}/
 
       - name: Setup Pages
         uses: actions/configure-pages@v5
