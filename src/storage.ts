@@ -104,6 +104,8 @@ export async function saveRecord(
       variant_label: record.variantLabel ?? null,
       variant_desc: record.variantDesc ?? null,
       tone: record.tone,
+      intensity: record.intensity,
+      consistency: record.consistency ?? null,
       is_favorite: record.isFavorite,
       ...(ownerName ? { owner_name: ownerName } : {}),
     })
@@ -177,6 +179,8 @@ function mapRecordRow(row: RewriteRecordRow): RewriteRecord {
       emotion: tone.emotion ?? 3,
       length: tone.length ?? 'medium',
     },
+    intensity: row.intensity ?? 70,
+    consistency: row.consistency,
     isFavorite: row.is_favorite,
     createdAt: row.created_at,
   }

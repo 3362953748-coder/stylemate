@@ -240,6 +240,66 @@ button:disabled {
   margin: 0 auto;
 }
 
+/* ---------- 风格一致性检测 ---------- */
+
+.consistency-box {
+  margin-top: 14px;
+  padding: 14px 16px;
+  border-radius: var(--radius-sm);
+  background: var(--panel-2);
+  border: 1px solid var(--border);
+}
+
+.consistency-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+
+.consistency-score {
+  font-size: 19px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+}
+
+.consistency-bar {
+  height: 6px;
+  border-radius: 4px;
+  background: #e4eaf2;
+  overflow: hidden;
+  margin-bottom: 4px;
+}
+
+.consistency-bar-fill {
+  height: 100%;
+  border-radius: 4px;
+  background: linear-gradient(90deg, var(--accent), var(--blue));
+  transition: width 0.4s ease;
+}
+
+.consistency-tips {
+  margin: 10px 0 0;
+  padding-left: 18px;
+  list-style: none;
+}
+
+.consistency-tips li {
+  position: relative;
+  font-size: 12.5px;
+  color: var(--text-dim);
+  line-height: 1.7;
+}
+
+.consistency-tips li::before {
+  content: '→';
+  position: absolute;
+  left: -16px;
+  color: var(--accent);
+  font-weight: 600;
+}
+
 /* ---------- 通用件 ---------- */
 
 .btn {

@@ -51,6 +51,10 @@ export interface RewriteRecord {
   variantLabel?: string | null
   variantDesc?: string | null
   tone: ToneConfig
+  /** 风格强度:0-100,越高越贴近个人风格,越低越通用 */
+  intensity: number
+  /** 风格一致性评分 0-100(生成后自评) */
+  consistency?: number | null
   isFavorite: boolean
   createdAt?: string
 }
@@ -106,6 +110,38 @@ export const LENGTH_LABEL: Record<ToneConfig['length'], string> = {
   short: '简短',
   medium: '适中',
   long: '详尽',
+}
+
+/**
+ * 风格强度的语义分层。
+ * 浓度太高会显得像抄袭原文,太低则失去个人风格 —— 这是竞品调研中
+ * 反复出现的核心诉求,因此把它做成显式可调的维度。
+ */
+export function intensityDirective(intensity: number): string {
+  if (intensity <= 20) {
+    return '风格强度:极低。只做轻度润色,保持中性通用的表达,不要刻意模仿任何个人风格特征。'
+  }
+  if (intensity <= 45) {
+    return '风格强度:较低。仅借鉴原文的大致语气倾向,不要复现具体句式、词汇习惯或结构套路。'
+  }
+  if (intensity <= 70) {
+    return '风格强度:中等。可以体现部分个人风格特征(用词偏好、句长节奏),但保留原文的信息骨架,避免与原文高度雷同。'
+  }
+  if (intensity <= 88) {
+    return '风格强度:较高。充分体现个人风格的用词偏好、句式节奏与叙述方式,同时确保内容主题与原文不同,不得出现与原文雷同的句子。'
+  }
+  return '风格强度:极高。完全以该风格组织语言表达,句式节奏、词汇选择、段落结构都对齐目标风格;但内容必须是新的,不可复用原文的具体表述。'
+}
+
+/** 一致性评分的档位描述 */
+export function consistencyLabel(score: number): {
+  label: string
+  tone: 'accent' | 'green' | 'amber' | 'pink'
+} {
+  if (score >= 85) return { label: '高度一致', tone: 'accent' }
+  if (score >= 70) return { label: '基本一致', tone: 'green' }
+  if (score >= 50) return { label: '部分偏离', tone: 'amber' }
+  return { label: '明显偏离', tone: 'pink' }
 }
 
 /** 把语气数值翻译成模型能理解的自然语言指令 */

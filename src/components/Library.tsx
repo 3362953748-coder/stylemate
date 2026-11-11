@@ -212,6 +212,22 @@ export default function Library({
                   {r.templateName ? (
                     <span className="pill pill-accent">{r.templateName}</span>
                   ) : null}
+                  {r.templateName ? (
+                    <span className="pill">强度 {r.intensity}%</span>
+                  ) : null}
+                  {typeof r.consistency === 'number' ? (
+                    <span
+                      className={`pill pill-${
+                        r.consistency >= 85
+                          ? 'accent'
+                          : r.consistency >= 70
+                            ? 'green'
+                            : 'amber'
+                      }`}
+                    >
+                      一致性 {r.consistency}
+                    </span>
+                  ) : null}
                   <span className="pill">
                     正式 {r.tone.formality} · 情绪 {r.tone.emotion} ·{' '}
                     {r.tone.length === 'short'

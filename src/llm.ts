@@ -1,5 +1,12 @@
 import { cloud } from './cloud'
-import { SCENE_MAP, toneDirective, type SceneKey, type StyleTraits, type ToneConfig } from './types'
+import {
+  SCENE_MAP,
+  intensityDirective,
+  toneDirective,
+  type SceneKey,
+  type StyleTraits,
+  type ToneConfig,
+} from './types'
 
 /**
  * 模型目录:首次调用前拉取并择优。
@@ -227,6 +234,8 @@ export async function rewriteText(
   sceneSystemPrompt?: string | null,
   onDelta?: (text: string) => void,
   signal?: AbortSignal,
+  /** 风格强度 0-100,仅在有个人模板时生效 */
+  intensity: number = 70,
 ): Promise<string> {
   const base =
     sceneSystemPrompt ||
@@ -237,12 +246,16 @@ export async function rewriteText(
     ? `\n\n同时必须严格模仿以下用户的个人写作风格,这是最重要的要求:\n${stylePrompt}`
     : ''
 
+  // 强度指令只在使用了个人模板时有意义 —— 没有模板时谈不上"浓度"
+  const intensityNote = stylePrompt ? intensityDirective(intensity) : ''
+
   return collectStream(
     [
       { role: 'system', content: base + custom },
       {
         role: 'user',
         content: `${toneDirective(tone)}
+${intensityNote}
 
 请改写下面这段文字。只输出改写后的正文,不要加任何解释、前言或标题。
 
@@ -271,6 +284,7 @@ export async function generateVariants(
   sceneSystemPrompt: string | null,
   variantSpecs: { label: string; desc: string; hint: string }[],
   onVersionDone?: (index: number, result: VariantResult) => void,
+  intensity: number = 70,
 ): Promise<VariantResult[]> {
   const base =
     sceneSystemPrompt ||
@@ -279,6 +293,7 @@ export async function generateVariants(
   const custom = stylePrompt
     ? `\n\n同时必须严格模仿以下用户的个人写作风格:\n${stylePrompt}`
     : ''
+  const intensityNote = stylePrompt ? intensityDirective(intensity) : ''
 
   const results = await Promise.all(
     variantSpecs.map(async (spec, index) => {
@@ -288,6 +303,7 @@ export async function generateVariants(
           {
             role: 'user',
             content: `${toneDirective(tone)}
+${intensityNote}
 
 本次要求版本取向:【${spec.label} · ${spec.desc}】。具体标准:${spec.hint}。
 请围绕这一取向改写,与其他版本形成明显区分,不要试图兼顾所有风格。
@@ -308,6 +324,67 @@ ${source}
     }),
   )
   return results
+}
+
+/**
+ * 风格一致性自评。
+ *
+ * 生成后让模型对照目标风格特征逐条打分,输出 0-100 的总分与
+ * 若干条改进建议。这解决了竞品普遍缺失的「写完之后能不能自动
+ * 检测一下风格匹配度」问题 —— 此前只能靠人眼判断。
+ */
+export async function evaluateConsistency(
+  generated: string,
+  traits: StyleTraits,
+  stylePrompt: string | null,
+  source?: string,
+): Promise<{ score: number; suggestions: string[] }> {
+  const { analysis } = await resolveModels()
+
+  const traitLines = Object.entries(traits)
+    .map(([k, v]) => `- ${k}: ${v}`)
+    .join('\n')
+
+  const raw = await collectStream(
+    [
+      {
+        role: 'system',
+        content:
+          '你是一位严格的文风审校。你评估的是一段文本的**表达方式**与目标风格的匹配程度,' +
+          '而不是内容题材是否合适。原文是产品介绍时,不必强求改成个人随笔;' +
+          '你只判断句长节奏、用词习惯、语气与结构这些文风层面是否对齐。' +
+          '评分要诚实严格,不要为了鼓励用户而给高分。只输出 JSON。',
+      },
+      {
+        role: 'user',
+        content: `目标风格特征:
+${traitLines}
+
+${stylePrompt ? `风格指令:\n${stylePrompt}\n` : ''}
+待评估文本:
+"""
+${generated}
+"""
+${source ? `\n原始素材(仅供理解内容背景,不要求内容与之相同):\n"""\n${source}\n"""\n` : ''}
+请评估该文本在**文风层面**与上述风格的匹配程度,严格按以下 JSON 输出:
+{
+  "score": 0到100的整数,总体文风匹配度,
+  "suggestions": ["若要更贴合该文风,应该怎么改", "最多3条,每条不超过40字"]
+}`,
+      },
+    ],
+    { json: true, temperature: 0.3, model: analysis },
+  )
+
+  const parsed = parseJsonLoose(raw) as {
+    score?: number
+    suggestions?: string[]
+  }
+  const score = Math.max(0, Math.min(100, Math.round(parsed.score ?? 0)))
+  const suggestions = Array.isArray(parsed.suggestions)
+    ? parsed.suggestions.filter((s) => typeof s === 'string').slice(0, 3)
+    : []
+  return { score, suggestions }
 }
 
 /** 继续修改:基于已有版本做局部调整 */

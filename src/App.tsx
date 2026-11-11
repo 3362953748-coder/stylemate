@@ -125,6 +125,8 @@ export default function App() {
     variantLabel: string | null
     variantDesc: string | null
     tone: RewriteRecord['tone']
+    intensity: number
+    consistency: number | null
   }) {
     const rec = await saveRecord({ ...payload, isFavorite: false }, userName)
     setRecords((prev) => [rec, ...prev])

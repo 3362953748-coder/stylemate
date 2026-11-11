@@ -1,9 +1,10 @@
 import { useEffect, useRef, useState } from 'react'
-import { generateVariants, refineText, rewriteText } from '../llm'
+import { evaluateConsistency, generateVariants, refineText, rewriteText } from '../llm'
 import {
   LENGTH_LABEL,
   SCENES,
   VARIANTS,
+  consistencyLabel,
   type SceneKey,
   type StyleTemplate,
   type ToneConfig,
@@ -31,6 +32,8 @@ interface Props {
     variantLabel: string | null
     variantDesc: string | null
     tone: ToneConfig
+    intensity: number
+    consistency: number | null
   }) => Promise<void>
   onUseTemplate: (t: StyleTemplate) => void
 }
@@ -45,6 +48,12 @@ export default function RewriteWorkbench({
   const [scene, setScene] = useState<SceneKey>('xiaohongshu')
   const [tone, setTone] = useState<ToneConfig>(SCENES[0].defaults)
   const [templateId, setTemplateId] = useState<number | null>(null)
+  const [intensity, setIntensity] = useState(70)
+  const [consistency, setConsistency] = useState<{
+    score: number
+    suggestions: string[]
+  } | null>(null)
+  const [checking, setChecking] = useState(false)
 
   const [output, setOutput] = useState('')
   const [streaming, setStreaming] = useState(false)
@@ -107,6 +116,7 @@ export default function RewriteWorkbench({
         sceneConfig.systemPrompt,
         (delta) => setOutput((prev) => prev + delta),
         controller.signal,
+        intensity,
       )
       setOutput(text)
     } catch (e) {
@@ -153,6 +163,7 @@ export default function RewriteWorkbench({
             descs: { ...prev.descs, [key]: result.desc },
           }))
         },
+        intensity,
       )
       setVariants({
         texts: {
@@ -210,6 +221,29 @@ export default function RewriteWorkbench({
     }
   }
 
+  /** 风格一致性自评:对照目标风格给当前结果打分 */
+  async function checkConsistency(text: string) {
+    if (!activeTemplate) {
+      setError('一致性检测需要先选择一个专属风格模板')
+      return
+    }
+    setChecking(true)
+    setError('')
+    try {
+      const result = await evaluateConsistency(
+        text,
+        activeTemplate.traits,
+        activeTemplate.stylePrompt,
+        source,
+      )
+      setConsistency(result)
+    } catch (e) {
+      setError(e instanceof Error ? e.message : '一致性检测失败')
+    } finally {
+      setChecking(false)
+    }
+  }
+
   async function persist(text: string, label: VariantKey | null) {
     try {
       await onSaveResult({
@@ -218,9 +252,13 @@ export default function RewriteWorkbench({
         scene: activeTemplate ? 'custom' : scene,
         templateId: activeTemplate?.id ?? null,
         templateName: activeTemplate?.name ?? null,
-        variantLabel: label ? VARIANTS.find((v) => v.key === label)?.label ?? null : null,
-        variantDesc: label ? variants.descs[label] ?? null : null,
+        variantLabel: label
+          ? (VARIANTS.find((v) => v.key === label)?.label ?? null)
+          : null,
+        variantDesc: label ? (variants.descs[label] ?? null) : null,
         tone,
+        intensity,
+        consistency: label === null ? (consistency?.score ?? null) : null,
       })
     } catch (e) {
       setError(e instanceof Error ? e.message : '保存到历史失败')
@@ -297,9 +335,33 @@ export default function RewriteWorkbench({
               ) : null}
             </div>
             {activeTemplate ? (
-              <div className="muted" style={{ marginTop: 7 }}>
-                将严格模仿「{activeTemplate.name}」的用词偏好与叙述节奏。
-              </div>
+              <>
+                <div className="muted" style={{ marginTop: 7 }}>
+                  将严格模仿「{activeTemplate.name}」的用词偏好与叙述节奏。
+                </div>
+
+                <div style={{ marginTop: 14 }}>
+                  <div className="tone-head">
+                    <span className="tone-name">风格强度</span>
+                    <span className="tone-val">{intensity}%</span>
+                  </div>
+                  <input
+                    type="range"
+                    min={0}
+                    max={100}
+                    step={5}
+                    value={intensity}
+                    onChange={(e) => setIntensity(Number(e.target.value))}
+                  />
+                  <div className="muted" style={{ marginTop: 6, fontSize: 11.5 }}>
+                    {intensity <= 45
+                      ? '低强度:仅借鉴语气倾向,不改写个人习惯。适合怕显得抄袭的场景。'
+                      : intensity <= 75
+                        ? '中强度:体现部分用词与句长偏好,保留原文信息骨架。推荐默认值。'
+                        : '高强度:完整还原个人风格特征,但内容仍须原创。'}
+                  </div>
+                </div>
+              </>
             ) : null}
           </div>
         ) : null}
@@ -403,7 +465,55 @@ export default function RewriteWorkbench({
                 >
                   复制
                 </button>
+                {activeTemplate ? (
+                  <button
+                    className="btn btn-sm"
+                    onClick={() => checkConsistency(output)}
+                    disabled={checking}
+                  >
+                    {checking ? '检测中…' : '🎯 风格一致性检测'}
+                  </button>
+                ) : null}
               </div>
+
+              {consistency ? (
+                <div className="consistency-box fade-in">
+                  <div className="consistency-head">
+                    <span className="tone-name">风格一致性</span>
+                    <span
+                      className={`pill pill-${consistencyLabel(consistency.score).tone}`}
+                    >
+                      {consistencyLabel(consistency.score).label}
+                    </span>
+                    <div className="spacer" />
+                    <span
+                      className="consistency-score"
+                      style={{
+                        color:
+                          consistency.score >= 70
+                            ? 'var(--accent)'
+                            : 'var(--amber)',
+                      }}
+                    >
+                      {consistency.score}
+                      <span style={{ fontSize: 12, opacity: 0.7 }}>/100</span>
+                    </span>
+                  </div>
+                  <div className="consistency-bar">
+                    <div
+                      className="consistency-bar-fill"
+                      style={{ width: `${consistency.score}%` }}
+                    />
+                  </div>
+                  {consistency.suggestions.length ? (
+                    <ul className="consistency-tips">
+                      {consistency.suggestions.map((s, i) => (
+                        <li key={i}>{s}</li>
+                      ))}
+                    </ul>
+                  ) : null}
+                </div>
+              ) : null}
 
               <div className="section-gap">
                 <label className="label">继续微调</label>

@@ -31,6 +31,8 @@ export interface RewriteRecordRow {
   variant_label: string | null
   variant_desc: string | null
   tone: Record<string, unknown> | null
+  intensity: number | null
+  consistency: number | null
   is_favorite: boolean
   created_at: string
 }
@@ -64,6 +66,8 @@ export interface Database {
           variant_label?: string | null
           variant_desc?: string | null
           tone?: Record<string, unknown> | null
+          intensity?: number | null
+          consistency?: number | null
           is_favorite?: boolean | null
         }
         Update: Partial<RewriteRecordRow>
