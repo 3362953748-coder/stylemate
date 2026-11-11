@@ -1,13 +1,24 @@
 /**
  * 联调脚本:验证云端 LLM 调用与模型目录可用性。
- * 用法:node scripts/verify-llm.mjs
+ *
+ * 用法:
+ *   node scripts/verify-llm.mjs
+ *
+ * 后端配置从环境变量读取(见 .env.example);
+ * 未设置时回退到仓库内置的公开演示环境。
  */
 import { createWorkBuddyCloud } from '@tencent-ai/workbuddy-cloud-sdk'
 
 const cloud = createWorkBuddyCloud({
-  endpoint: 'https://stylemate-34839.app.workbuddy.host',
-  oauthRelayBaseUrl: 'https://www.workbuddy.cn/v2/as/genie-baas/oauth',
-  publishableKey: 'wbpk_JQ4RM2uVZZoJ8mV6wSjRb4_N5zj4LVU4sJlHzw6lApvYPS7tfPmDLl6',
+  endpoint:
+    process.env.VITE_CLOUD_ENDPOINT ??
+    'https://stylemate-34839.app.workbuddy.host',
+  oauthRelayBaseUrl:
+    process.env.VITE_CLOUD_OAUTH_RELAY ??
+    'https://www.workbuddy.cn/v2/as/genie-baas/oauth',
+  publishableKey:
+    process.env.VITE_CLOUD_PUBLISHABLE_KEY ??
+    'wbpk_JQ4RM2uVZZoJ8mV6wSjRb4_N5zj4LVU4sJlHzw6lApvYPS7tfPmDLl6',
 })
 
 console.log('1) 拉取模型目录…')
@@ -68,7 +79,9 @@ for await (const chunk of cloud.llm.chat.completions.create({
   const delta = chunk.choices[0]?.delta?.content
   if (delta) jsonRaw += delta
 }
-const parsed = JSON.parse(jsonRaw.replace(/^```(?:json)?\s*/i, '').replace(/```\s*$/, ''))
+const parsed = JSON.parse(
+  jsonRaw.replace(/^```(?:json)?\s*/i, '').replace(/```\s*$/, ''),
+)
 console.log('   解析成功:', JSON.stringify(parsed))
 
 console.log('\n✅ LLM 链路全部通过')

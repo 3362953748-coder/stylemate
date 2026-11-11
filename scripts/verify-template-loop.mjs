@@ -6,9 +6,15 @@
 import { createWorkBuddyCloud } from '@tencent-ai/workbuddy-cloud-sdk'
 
 const cloud = createWorkBuddyCloud({
-  endpoint: 'https://stylemate-34839.app.workbuddy.host',
-  oauthRelayBaseUrl: 'https://www.workbuddy.cn/v2/as/genie-baas/oauth',
-  publishableKey: 'wbpk_JQ4RM2uVZZoJ8mV6wSjRb4_N5zj4LVU4sJlHzw6lApvYPS7tfPmDLl6',
+  endpoint:
+    process.env.VITE_CLOUD_ENDPOINT ??
+    'https://stylemate-34839.app.workbuddy.host',
+  oauthRelayBaseUrl:
+    process.env.VITE_CLOUD_OAUTH_RELAY ??
+    'https://www.workbuddy.cn/v2/as/genie-baas/oauth',
+  publishableKey:
+    process.env.VITE_CLOUD_PUBLISHABLE_KEY ??
+    'wbpk_JQ4RM2uVZZoJ8mV6wSjRb4_N5zj4LVU4sJlHzw6lApvYPS7tfPmDLl6',
 })
 
 const STYLE_PROMPT = `用第一人称"我"写日常随笔。通篇短句,单句控制在15-25字内,多用动词串联动作,像说话一样自然。
